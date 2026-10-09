@@ -45,6 +45,8 @@ import { healthFindings, siteFindings, type Finding } from "./build-checks.js";
 import { createClient, type CmsClient } from "./client.js";
 import { sendTemplates } from "./form-emails.js";
 import { servedSitemap } from "./sitemap-filter.js";
+import { cloudflareRedirects, LIMITS, shadowedPages } from "./redirects.js";
+import { shapeSitemap, type TrailingSlash } from "./site-paths.js";
 import { generateTypes } from "./codegen.js";
 import { keepConnection, resolveConnection, type Connection } from "./connection.js";
 import { lastCursor } from "./loaders.js";
@@ -89,6 +91,7 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
   let siteMeta: CmsSiteMeta | null = null;
   let siteUrl: string | undefined;
   let clientDir: URL | undefined;
+  let trailingSlash: TrailingSlash | undefined;
   let onDemand = false;
   let render: "static" | "server" | "hybrid" = "static";
   let onDemandPatterns: RegExp[] = [];
@@ -174,6 +177,7 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
 
       "astro:config:done": async ({ config, injectTypes, logger }) => {
         clientDir = config.build.client;
+        trailingSlash = config.trailingSlash;
         if (!client) return;
         try {
           const { data: schema } = await client.schema();
@@ -197,13 +201,21 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
         const assetsDir = onDemand && clientDir ? clientDir : dir;
 
         if (redirects) {
-          const rules = await client.redirectsFile();
+          const rules = cloudflareRedirects(await client.redirectsFile(), trailingSlash);
           const file = new URL("_redirects", assetsDir);
           const own = await readFile(file, "utf8").catch(() => "");
           const marker = "# From the CMS (Tools › Redirects)";
           const kept = own.split(marker)[0].trimEnd();
-          await writeFile(file, `${kept}${kept ? "\n\n" : ""}${marker}\n${rules}`);
-          logger.info(`_redirects: ${rules.split("\n").filter(Boolean).length} rules from the CMS`);
+          await writeFile(file, `${kept}${kept ? "\n\n" : ""}${marker}\n${rules.text}`);
+          logger.info(`_redirects: ${rules.static + rules.dynamic} rules from the CMS (each path with and without its trailing slash)`);
+          const shadowed = shadowedPages(rules.text, pages.map((page) => page.pathname));
+          if (shadowed.length) {
+            const examples = shadowed.slice(0, 3).join(", ");
+            logger.warn(`_redirects: ${shadowed.length} CMS redirect${shadowed.length === 1 ? "" : "s"} send visitors away from a page this site built (${examples}${shadowed.length > 3 ? ", …" : ""}), so the page is never seen. Remove the rule in the CMS (Tools › Redirects) if the page is meant to be there.`);
+          }
+          if (rules.static > LIMITS.static || rules.dynamic > LIMITS.dynamic) {
+            logger.warn(`_redirects: Cloudflare takes ${LIMITS.static} static and ${LIMITS.dynamic} dynamic rules; this has ${rules.static} and ${rules.dynamic}, so the rest are ignored.`);
+          }
         }
 
         if (sitemap) {
@@ -211,8 +223,10 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
           const xml = await readFile(file, "utf8").catch(() => null);
           if (xml) {
             const served = servedSitemap(xml, pages.map((page) => page.pathname), onDemandPatterns);
+            // Absolute on the site, in the form it serves (trailingSlash).
+            const shaped = shapeSitemap(served.xml, siteUrl, trailingSlash);
+            if (shaped !== xml) await writeFile(file, shaped);
             if (served.removed.length) {
-              await writeFile(file, served.xml);
               const examples = served.removed.slice(0, 3).join(", ");
               logger.warn(`sitemap.xml: left out ${served.removed.length} URL${served.removed.length === 1 ? "" : "s"} the CMS lists but this site has no page for (${examples}${served.removed.length > 3 ? ", …" : ""}). Give them a route, or mark them noindex in the CMS.`);
             }
