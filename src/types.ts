@@ -57,8 +57,51 @@ export interface CmsBlock<D = Record<string, unknown>> {
    * `collection_list` gets `{ entries, total, … }`, a `contact_info` gets
    * `{ contact }` (Page::BlockExpansion).
    */
-  resolved?: Record<string, any>;
+  resolved?: CmsCollectionList | CmsContactInfo | Record<string, any>;
 }
+
+/** An entry as a collection_list block lists it. */
+export interface CmsListedEntry<F = Record<string, unknown>> {
+  id: number;
+  slug: string;
+  title: string;
+  status: string;
+  locale: string;
+  collection: string;
+  /** Where it's served on the site, like an entry's own `url`. */
+  url: string;
+  frontmatter: F;
+  body_markdown: string | null;
+  published_at: string | null;
+  updated_at: string;
+  category: CmsTerm | null;
+  tags: CmsTerm[];
+}
+
+/** What a collection_list block's `resolved` holds: the published entries it lists. */
+export interface CmsCollectionList {
+  collection?: { slug: string; name: string };
+  entries: CmsListedEntry[];
+  total: number;
+  /** With the block's group_by: one bucket per category, tag or field value. */
+  groups?: { key: string; label: string; entries: CmsListedEntry[] }[];
+  /** "collection not found" when the block names one that doesn't exist. */
+  error?: string;
+}
+
+/** The business's details (Settings › General), as /api/v1/site and contact_info give them. */
+export interface CmsContact {
+  title?: string;
+  phone?: string;
+  email?: string;
+  address_line1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}
+
+/** What a contact_info block's `resolved` holds. */
+export interface CmsContactInfo { contact: CmsContact }
 
 export interface CmsTerm { id: number; slug: string; title: string }
 
@@ -147,7 +190,7 @@ export interface CmsSite {
   default_locale: string;
   /** Every locale but the default is a path prefix: /fr/… */
   locales: string[];
-  contact: Record<string, string>;
+  contact: CmsContact;
   /** The CMS's enabled plugins: "forms" and "media" by default. */
   plugins: string[];
   /** What the plugins tell a build, e.g. `forms.captcha` (null without spam protection). */
