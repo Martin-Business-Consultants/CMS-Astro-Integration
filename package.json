@@ -40,6 +40,10 @@
       "types": "./dist/forms/index.d.ts",
       "default": "./dist/forms/index.js"
     },
+    "./commerce": {
+      "types": "./dist/commerce/index.d.ts",
+      "default": "./dist/commerce/index.js"
+    },
     "./runtime/*": {
       "types": "./dist/runtime/*.d.ts",
       "default": "./dist/runtime/*.js"

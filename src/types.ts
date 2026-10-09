@@ -133,7 +133,12 @@ export interface CmsCollection {
   fields: unknown[];
 }
 
-export interface CmsSiteMeta { api_version: string; cms_version: string }
+export interface CmsSiteMeta {
+  api_version: string;
+  cms_version: string;
+  /** The CMS's own address (its APP_HOST), which asset URLs start with. */
+  cms_url?: string;
+}
 
 export interface CmsSite {
   name: string;
@@ -148,6 +153,8 @@ export interface CmsSite {
   /** What the plugins tell a build, e.g. `forms.captcha` (null without spam protection). */
   plugin_config: {
     forms?: { captcha: { provider: "turnstile" | "recaptcha"; site_key: string } | null };
+    /** With Commerce on: where "Request a quote" posts. */
+    commerce?: { quote_request_action: string };
     [plugin: string]: any;
   };
 }

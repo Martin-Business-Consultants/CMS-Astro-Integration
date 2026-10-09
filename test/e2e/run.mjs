@@ -45,6 +45,7 @@ for (const mode of ["static", "on demand"]) {
     assert.match(read(`${out}contact/index.html`), /data-cms-form/, `${mode}: <Form>`);
     assert.ok(!existsSync(`${example}${out}emails`), `${mode}: form email templates left out of the site`);
   }
+  if (plugins.includes("commerce")) assert.match(read(`${out}quote/index.html`), /data-cms-quote/, `${mode}: <QuoteRequest>`);
   if (plugins.includes("media")) assert.match(log, /librepublish-assets\] (loaded|updated)/, `${mode}: assets`);
   if (mode === "on demand") assert.ok(existsSync(`${example}dist/server`), "on demand: the Worker");
   console.log(`✓ ${mode}`);

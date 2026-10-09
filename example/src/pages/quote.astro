@@ -1,0 +1,15 @@
+---
+// "Request a quote" (the CMS's Commerce plugin, when it's on), for one product.
+import QuoteRequest from "@librepublish/astro/components/QuoteRequest.astro";
+import { commerceEnabled } from "@librepublish/astro/commerce";
+
+const on = await commerceEnabled();
+---
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Request a quote</title></head>
+  <body>
+    <h1>Steel shed</h1>
+    {on ? <QuoteRequest items={[{ title: "Steel shed", sku: "SH-1", unit_price: "$2,200.00", quantity: 1 }]} /> : <p>Ask us for a price.</p>}
+  </body>
+</html>

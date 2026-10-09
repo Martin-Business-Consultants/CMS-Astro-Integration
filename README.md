@@ -2,8 +2,8 @@
 
 `@librepublish/astro` is the whole Astro integration for
 [LibrePublish CMS](https://github.com/Martin-Business-Consultants/cmsv2) (cmsv2),
-in one package. It covers the core content API and the CMS's two default
-plugins, **Forms** and **Media**:
+in one package. It covers the core content API, the CMS's two default
+plugins, **Forms** and **Media**, and **Commerce** when it's switched on:
 
 - **Content.** Content loaders that only fetch what changed, live collections
   for on-demand pages, and TypeScript types generated from the CMS's schema.
@@ -12,6 +12,8 @@ plugins, **Forms** and **Media**:
 - **Forms.** `<Form>` posts straight to the CMS, with a honeypot and
   Turnstile or reCAPTCHA. Form emails are built in the site's design and sent
   to the CMS at build time.
+- **Commerce.** `<QuoteRequest>` sends "Request a quote" straight to the CMS's
+  quote inbox, with the items as the visitor saw them.
 - **Site files.** `/sitemap.xml`, `/robots.txt` and Cloudflare `_redirects`,
   all from the CMS.
 - **Publishing.** A static site is rebuilt when content is published. An
@@ -146,6 +148,24 @@ the deployed site. Until a template for an email's current blocks arrives, the
 CMS sends that email in its own layout. To change this, use
 `cms({ formEmails: { route, keep } })`, or `formEmails: false`.
 
+## Quotes
+
+With the Commerce plugin switched on in the CMS:
+
+```astro
+---
+import QuoteRequest from "@librepublish/astro/components/QuoteRequest.astro";
+---
+<QuoteRequest items={[{ title: product.title, sku: product.sku, unit_price: "$2,200.00", quantity: 1 }]} />
+```
+
+The request lands in Commerce › Quote requests, and the shop drafts an invoice
+from it. The visitor gives a name, an email or phone number, a company and a
+message. It works as a plain HTML form; with JavaScript it submits in place.
+It's unstyled: style the `cms-quote__*` classes and the form's `data-state`.
+`commerceEnabled()` from `@librepublish/astro/commerce` tells a page whether to
+offer it.
+
 ## Pages rendered on demand
 
 The build tells the CMS how the site renders. A **static** site (no adapter,
@@ -206,7 +226,8 @@ to make a failing check stop the build instead.
 | `@librepublish/astro/live` | `cmsLivePages`, `cmsLiveEntries`, `cacheHint`. |
 | `@librepublish/astro/client` | `createClient`, `linkHref`, `recordPath`, `routeParam`, `CmsError`, and the API's types. |
 | `@librepublish/astro/forms` | `getForm`, `getForms`, `emailTemplatePaths`, `digestMeta`, `answersRow`, and the form types. |
-| `@librepublish/astro/components/*.astro` | `Blocks`, `Image`, `Seo`, `Form`. |
+| `@librepublish/astro/commerce` | `quoteRequestAction`, `commerceEnabled`, `QuoteItem`. |
+| `@librepublish/astro/components/*.astro` | `Blocks`, `Image`, `Seo`, `Form`, `QuoteRequest`. |
 | `librepublish:types` | Generated from the CMS's schema. |
 
 ## Develop
@@ -218,8 +239,8 @@ npm run e2e      # builds example/ against a real CMS, static and on demand
 ```
 
 `npm run e2e` needs `CMS_BASE_URL` and `CMS_API_TOKEN`, pointing at a
-**development** CMS (a cmsv2 checkout with its default plugins, which
-`bin/setup` installs). The builds report themselves to that CMS and send it
-the example's form email templates.
+**development** CMS: a cmsv2 checkout with its default plugins, which
+`bin/setup` installs, plus Commerce if you want that covered too. The builds
+report themselves to that CMS and send it the example's form email templates.
 
 Functional Source License 1.1, with an MIT future license, like the CMS ([LICENSE.md](LICENSE.md)).

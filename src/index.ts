@@ -29,7 +29,8 @@
  *
  * With the CMS's default plugins it also carries Forms (<Form>, getForm,
  * form emails in the site's design — @librepublish/astro/forms) and Media
- * (assets in `included.assets` and the cmsAssets() collection, <Image>).
+ * (assets in `included.assets` and the cmsAssets() collection, <Image>);
+ * with Commerce, <QuoteRequest> (@librepublish/astro/commerce).
  *
  * Content comes through the loaders (@librepublish/astro/loaders, and
  * /live for live collections) and the client (@librepublish/astro/client).
@@ -46,7 +47,7 @@ import { sendTemplates } from "./form-emails.js";
 import { generateTypes } from "./codegen.js";
 import { keepConnection, resolveConnection, type Connection } from "./connection.js";
 import { lastCursor } from "./loaders.js";
-import type { CmsSite } from "./types.js";
+import type { CmsSite, CmsSiteMeta } from "./types.js";
 
 export const NAME = "librepublish";
 /** This package's version, as package.json has it (reported with each build). */
@@ -84,6 +85,7 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
   let connection: Connection | null = null;
   let client: CmsClient | null = null;
   let site: CmsSite | null = null;
+  let siteMeta: CmsSiteMeta | null = null;
   let siteUrl: string | undefined;
   let clientDir: URL | undefined;
   let onDemand = false;
@@ -121,18 +123,21 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
         client = createClient(connection);
 
         try {
-          site = (await client.site()).data;
+          ({ data: site, meta: siteMeta } = await client.site());
         } catch (error) {
           if (command === "build") throw error;
           logger.warn(`Couldn't reach the CMS at ${connection.url}: ${(error as Error).message}`);
         }
 
-        const cmsHost = new URL(connection.url);
+        // Asset URLs start with the CMS's own address (its APP_HOST), which can
+        // differ from the one the build reaches the API at.
+        const imageHosts = [new URL(connection.url)];
+        if (siteMeta?.cms_url && new URL(siteMeta.cms_url).host !== imageHosts[0].host) imageHosts.push(new URL(siteMeta.cms_url));
         siteUrl = config.site ?? (site?.url || undefined);
         const locales = site?.locales ?? [];
         updateConfig({
           site: siteUrl,
-          image: { remotePatterns: [{ protocol: cmsHost.protocol.replace(":", ""), hostname: cmsHost.hostname }] },
+          image: { remotePatterns: imageHosts.map((host) => ({ protocol: host.protocol.replace(":", ""), hostname: host.hostname })) },
           ...(i18n && !config.i18n && site && locales.length > 1
             ? { i18n: { locales, defaultLocale: site.default_locale, routing: { prefixDefaultLocale: false, redirectToDefaultLocale: false, fallbackType: "redirect" as const } } }
             : {}),
