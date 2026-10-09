@@ -44,6 +44,7 @@ import { writeAgentsMd } from "./agents-md.js";
 import { healthFindings, siteFindings, type Finding } from "./build-checks.js";
 import { createClient, type CmsClient } from "./client.js";
 import { sendTemplates } from "./form-emails.js";
+import { servedSitemap } from "./sitemap-filter.js";
 import { generateTypes } from "./codegen.js";
 import { keepConnection, resolveConnection, type Connection } from "./connection.js";
 import { lastCursor } from "./loaders.js";
@@ -90,6 +91,7 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
   let clientDir: URL | undefined;
   let onDemand = false;
   let render: "static" | "server" | "hybrid" = "static";
+  let onDemandPatterns: RegExp[] = [];
   let startedAt = 0;
 
   return {
@@ -186,6 +188,7 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
         const pages = routes.filter((route) => !own(route) && route.origin !== "internal");
         const prerendered = pages.filter((route) => route.isPrerendered).length;
         render = prerendered === pages.length ? "static" : prerendered === 0 ? "server" : "hybrid";
+        onDemandPatterns = pages.filter((route) => !route.isPrerendered && route.type === "page").map((route) => route.patternRegex);
       },
 
       "astro:build:done": async ({ dir, pages, logger }) => {
@@ -201,6 +204,19 @@ export default function cms(options: CmsOptions = {}): AstroIntegration {
           const kept = own.split(marker)[0].trimEnd();
           await writeFile(file, `${kept}${kept ? "\n\n" : ""}${marker}\n${rules}`);
           logger.info(`_redirects: ${rules.split("\n").filter(Boolean).length} rules from the CMS`);
+        }
+
+        if (sitemap) {
+          const file = new URL("sitemap.xml", assetsDir);
+          const xml = await readFile(file, "utf8").catch(() => null);
+          if (xml) {
+            const served = servedSitemap(xml, pages.map((page) => page.pathname), onDemandPatterns);
+            if (served.removed.length) {
+              await writeFile(file, served.xml);
+              const examples = served.removed.slice(0, 3).join(", ");
+              logger.warn(`sitemap.xml: left out ${served.removed.length} URL${served.removed.length === 1 ? "" : "s"} the CMS lists but this site has no page for (${examples}${served.removed.length > 3 ? ", …" : ""}). Give them a route, or mark them noindex in the CMS.`);
+            }
+          }
         }
 
         if (formEmails) {

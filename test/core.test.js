@@ -228,3 +228,15 @@ test("a 403 names the capability the role is missing", async () => {
   const cms = createClient({ url: "https://cms.test", token: "t", fetch: fetcher });
   await assert.rejects(cms.get("/forms/contact"), (error) => error.status === 403 && /forms:read/.test(error.message));
 });
+
+test("sitemap.xml keeps only what the site serves: built pages and on-demand routes", async () => {
+  const { servedSitemap } = await import("../dist/sitemap-filter.js");
+  const url = (loc) => `  <url>\n    <loc>${loc}</loc>\n  </url>\n`;
+  const xml = `<?xml version="1.0"?>\n<urlset>\n${url("https://acme.test/")}${url("https://acme.test/about")}${url("https://acme.test/categories/appetizer")}${url("https://acme.test/live/x")}${url("https://acme.test/posts/a&amp;b")}</urlset>\n`;
+  const { xml: kept, removed } = servedSitemap(xml, ["", "about/", "posts/a&b"], [/^\/live(?:\/(.*?))?\/?$/]);
+  assert.deepEqual(removed, ["/categories/appetizer"]);
+  assert.match(kept, /acme\.test\/about/);
+  assert.match(kept, /acme\.test\/live\/x/);
+  assert.match(kept, /a&amp;b/);
+  assert.doesNotMatch(kept, /appetizer/);
+});

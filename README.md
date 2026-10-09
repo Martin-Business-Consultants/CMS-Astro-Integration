@@ -210,7 +210,7 @@ to make a failing check stop the build instead.
 |---|---|---|
 | `url`, `token` | `CMS_BASE_URL`, `CMS_API_TOKEN` | Where the CMS is, and the site's service token. |
 | `i18n` | `true` | Sets up Astro's i18n from the CMS's locales. Every locale except the default gets a path prefix. |
-| `sitemap` | `true` | Adds `/sitemap.xml`, and `/robots.txt` unless `public/robots.txt` exists. |
+| `sitemap` | `true` | Adds `/sitemap.xml`, and `/robots.txt` unless `public/robots.txt` exists. After a build, the sitemap keeps only the URLs the site serves (its built pages and on-demand routes), and warns about the rest, such as a categories collection with no pages of its own. |
 | `redirects` | `true` | After a build, writes the CMS's redirects into `_redirects`, after the site's own rules. |
 | `formEmails` | `{ route: "emails" }` | After a build, sends the form email templates the site built to the CMS. Only runs when the CMS has Forms on. |
 | `siteHealth` | `"warn"` | `"error"` stops the build on a failing check; `"off"` skips the checks. |
