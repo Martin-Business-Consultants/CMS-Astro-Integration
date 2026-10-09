@@ -6,6 +6,8 @@ import { generateTypes } from "../dist/codegen.js";
 import { keepConnection } from "../dist/connection.js";
 import { cmsPages, cmsEntries } from "../dist/loaders.js";
 import { healthChecklist } from "../dist/build-checks.js";
+import { cloudflareRedirects, shadowedPages } from "../dist/redirects.js";
+import { shapeSitemap, sitePath } from "../dist/site-paths.js";
 
 const envelope = (data, meta = {}, included) => ({ data, meta, ...(included ? { included } : {}) });
 
@@ -239,4 +241,63 @@ test("sitemap.xml keeps only what the site serves: built pages and on-demand rou
   assert.match(kept, /acme\.test\/live\/x/);
   assert.match(kept, /a&amp;b/);
   assert.doesNotMatch(kept, /appetizer/);
+});
+
+test("site paths take the site's trailingSlash; \"/\", files and other hosts don't change", () => {
+  assert.equal(sitePath("/menu", "always"), "/menu/");
+  assert.equal(sitePath("/menu/?a=1#b", "never"), "/menu?a=1#b");
+  assert.equal(sitePath("/menu?a=1", "always"), "/menu/?a=1");
+  assert.equal(sitePath("/", "always"), "/");
+  assert.equal(sitePath("/feed.xml", "always"), "/feed.xml");
+  assert.equal(sitePath("/menu", "ignore"), "/menu");
+  assert.equal(sitePath("https://elsewhere.test/a", "always"), "https://elsewhere.test/a");
+});
+
+test("sitemap.xml: every loc and hreflang absolute on the site, in the form it serves", () => {
+  const xml = [
+    "<url><loc>/</loc></url>",
+    "<url><loc>/menu</loc><xhtml:link rel=\"alternate\" hreflang=\"fr\" href=\"/fr/menu\"/></url>",
+    "<url><loc>https://acme.test/about</loc></url>",
+    "<url><loc>https://elsewhere.test/x</loc></url>",
+    "<url><loc>/a?b=1&amp;c=2</loc></url>",
+  ].join("\n");
+  const shaped = shapeSitemap(xml, "https://acme.test", "always");
+  assert.match(shaped, /<loc>https:\/\/acme\.test\/<\/loc>/);
+  assert.match(shaped, /<loc>https:\/\/acme\.test\/menu\/<\/loc>/);
+  assert.match(shaped, /href="https:\/\/acme\.test\/fr\/menu\/"/);
+  assert.match(shaped, /<loc>https:\/\/acme\.test\/about\/<\/loc>/);
+  assert.match(shaped, /<loc>https:\/\/elsewhere\.test\/x<\/loc>/);
+  assert.match(shaped, /<loc>https:\/\/acme\.test\/a\/\?b=1&amp;c=2<\/loc>/);
+  // No site URL anywhere: paths stay paths, only reshaped.
+  assert.match(shapeSitemap("<loc>/menu</loc>", undefined, "always"), /<loc>\/menu\/<\/loc>/);
+});
+
+test("_redirects: each plain path with and without its slash, destinations in the site's form", () => {
+  const rules = cloudflareRedirects([
+    "/old /new 301",
+    "/gone/ / 301",
+    "/old/ /elsewhere 302",
+    "/blog/* /posts/:splat 301",
+    "/feed.xml /rss.xml 301",
+    "/out https://elsewhere.test/x 302",
+    "",
+  ].join("\n"), "always");
+  assert.deepEqual(rules.text.trim().split("\n"), [
+    "/old /new/ 301",
+    "/old/ /new/ 301",
+    "/gone / 301",
+    "/gone/ / 301",
+    "/blog/* /posts/:splat 301",
+    "/feed.xml /rss.xml 301",
+    "/out https://elsewhere.test/x 302",
+    "/out/ https://elsewhere.test/x 302",
+  ]);
+  assert.equal(rules.dynamic, 1);
+  assert.equal(rules.static, 7);
+  assert.equal(cloudflareRedirects("/a /b 301\n").text, "/a /b 301\n/a/ /b 301\n");
+});
+
+test("_redirects: a rule that sends visitors away from a built page is found", () => {
+  const rules = "/food/a /menu/a/ 301\n/food/a/ /menu/a/ 301\n/gone / 301\n/blog/* /posts/:splat 301\n";
+  assert.deepEqual(shadowedPages(rules, ["food/a/", "menu/a/", "", "blog/x/"]), ["/food/a"]);
 });
