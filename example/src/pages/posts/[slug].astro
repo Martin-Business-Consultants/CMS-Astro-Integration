@@ -1,0 +1,21 @@
+---
+import { getCollection } from "astro:content";
+import Blocks from "@librepublish/astro/components/Blocks.astro";
+import type { CmsEntry } from "@librepublish/astro/client";
+import Base from "../../layouts/Base.astro";
+import Fallback from "../../components/blocks/Fallback.astro";
+import { assetsById } from "../../lib/assets";
+
+export async function getStaticPaths() {
+  return (await getCollection("posts")).map((post) => ({ params: { slug: post.id }, props: { post: post.data as unknown as CmsEntry } }));
+}
+const { post } = Astro.props;
+const assets = await assetsById();
+const components = new Proxy({}, { get: () => Fallback });
+---
+<Base record={post}>
+  <h1>{post.title}</h1>
+  {/* body_markdown is Markdown, or HTML from the rich-text editor: a real site runs it through a Markdown renderer. */}
+  {post.body_markdown && <article set:text={post.body_markdown} />}
+  <Blocks blocks={post.blocks} components={components} assets={assets} />
+</Base>

@@ -1,0 +1,39 @@
+---
+// Each form email in the site's design. cms() sends what this builds to the
+// CMS after `astro build` and leaves it out of the deployed site. The CMS
+// fills in the {{tokens}} and repeats the answersRow once per answer.
+import { answersRow, digestMeta, emailTemplatePaths, type CmsEmailBlock, type CmsFormEmail } from "@librepublish/astro/forms";
+
+export const prerender = true;
+export const getStaticPaths = emailTemplatePaths;
+
+const { email } = Astro.props as { email: CmsFormEmail };
+const blocks = email.blocks as CmsEmailBlock[];
+---
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta {...digestMeta(email)} /><title>{email.subject}</title></head>
+  <body style="font-family: system-ui, sans-serif; background: #f4f6f8; padding: 24px">
+    <table role="presentation" width="100%" style="max-width: 600px; margin: 0 auto; background: #fff; padding: 24px">
+      {blocks.map((block) => {
+        switch (block.type) {
+          case "email_heading": return <tr><td><h1 style={`text-align:${block.data.align ?? "left"}`}>{block.data.text}</h1></td></tr>;
+          case "email_text": return <tr><td set:html={block.data.body} /></tr>;
+          case "email_button": return <tr><td><a href={block.data.url} style="background:#1d4ed8;color:#fff;padding:10px 16px">{block.data.label}</a></td></tr>;
+          case "email_image": return block.resolved?.url ? <tr><td><img src={block.resolved.url} alt={block.data.alt ?? ""} width="552" /></td></tr> : null;
+          case "email_divider": return <tr><td><hr /></td></tr>;
+          case "email_spacer": return <tr><td style="height:24px" /></tr>;
+          case "email_submission": return (
+            <tr><td>
+              {block.data.title && <h2>{block.data.title}</h2>}
+              <table role="presentation" width="100%">
+                <tr {...answersRow(block)}><th align="left">{"{{answer.label}}"}</th><td>{"{{answer.value}}"}</td></tr>
+              </table>
+            </td></tr>
+          );
+          default: return null;
+        }
+      })}
+    </table>
+  </body>
+</html>

@@ -1,0 +1,137 @@
+---
+/**
+ * A CMS form, posting straight to the CMS:
+ *
+ *   <Form slug="contact" />            (or form={await getForm("contact")})
+ *
+ * The Forms plugin's form (on in every install by default).
+ *
+ * Its fields in order, a hidden honeypot, Cloudflare Turnstile when the CMS
+ * has it set up, and the submit label. With JavaScript it submits in place
+ * and shows the form's success message, or each field's error beside it;
+ * without, the browser posts it. Unstyled: classes are cms-form__*, and the
+ * form's data-state is idle, sending, sent or failed.
+ */
+import { getForm, type CmsForm } from "@librepublish/astro/forms";
+
+interface Props {
+  slug?: string;
+  form?: CmsForm;
+  class?: string;
+}
+
+const { slug, class: className } = Astro.props;
+const form = Astro.props.form ?? (slug ? await getForm(slug) : undefined);
+if (!form) throw new Error("<Form> needs a slug or a form.");
+const id = `cms-form-${form.slug}`;
+const multipart = form.fields.some((field) => field.type === "file");
+---
+<form
+  id={id}
+  class:list={["cms-form", className]}
+  action={form.action}
+  method="post"
+  enctype={multipart ? "multipart/form-data" : undefined}
+  data-cms-form
+  data-state="idle"
+  data-success={form.success_message ?? "Thanks — we got it."}
+>
+  {form.fields.map((field) => {
+    const fieldId = `${id}-${field.name}`;
+    const describedBy = field.help ? `${fieldId}-help` : undefined;
+    return (
+      <div class={`cms-form__field cms-form__field--${field.type}`}>
+        {field.type === "checkbox" ? (
+          <label for={fieldId}>
+            <input id={fieldId} type="checkbox" name={field.name} value="1" required={field.required} aria-describedby={describedBy} />
+            {field.label}
+          </label>
+        ) : field.type === "radio" ? (
+          <fieldset aria-describedby={describedBy}>
+            <legend>{field.label}</legend>
+            {(field.options ?? []).map((option) => (
+              <label><input type="radio" name={field.name} value={option.value} required={field.required} /> {option.label}</label>
+            ))}
+          </fieldset>
+        ) : (
+          <Fragment>
+            <label for={fieldId}>{field.label}{field.required && <span aria-hidden="true"> *</span>}</label>
+            {field.type === "textarea" ? (
+              <textarea id={fieldId} name={field.name} required={field.required} placeholder={field.placeholder} rows="5" aria-describedby={describedBy} />
+            ) : field.type === "select" ? (
+              <select id={fieldId} name={field.name} required={field.required} aria-describedby={describedBy}>
+                <option value="">{field.placeholder ?? "Choose…"}</option>
+                {(field.options ?? []).map((option) => <option value={option.value}>{option.label}</option>)}
+              </select>
+            ) : (
+              <input
+                id={fieldId}
+                type={field.type}
+                name={field.name}
+                required={field.required}
+                placeholder={field.placeholder}
+                accept={field.type === "file" ? field.accept : undefined}
+                autocomplete={field.type === "email" ? "email" : field.type === "tel" ? "tel" : undefined}
+                aria-describedby={describedBy}
+              />
+            )}
+          </Fragment>
+        )}
+        {field.help && <p class="cms-form__help" id={`${fieldId}-help`}>{field.help}</p>}
+        <p class="cms-form__error" data-error-for={field.name} data-label={field.label} hidden></p>
+      </div>
+    );
+  })}
+
+  <div class="cms-form__honeypot" aria-hidden="true" style="position:absolute;left:-9999px">
+    <label>Leave this empty <input type="text" name={form.honeypot} tabindex="-1" autocomplete="off" /></label>
+  </div>
+
+  {form.captcha?.provider === "turnstile" && <div class="cf-turnstile" data-sitekey={form.captcha.site_key}></div>}
+  {form.captcha?.provider === "recaptcha" && <div class="g-recaptcha" data-sitekey={form.captcha.site_key}></div>}
+
+  <button type="submit" class="cms-form__submit">{form.submit_label || "Send"}</button>
+  <p class="cms-form__status" role="status" aria-live="polite"></p>
+</form>
+
+{form.captcha?.provider === "turnstile" && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+{form.captcha?.provider === "recaptcha" && <script is:inline src="https://www.google.com/recaptcha/api.js" async defer></script>}
+
+<script>
+  const MESSAGES: Record<string, string> = {
+    captcha_failed: "Please complete the check and try again.",
+    rate_limited: "Too many tries — please wait a few minutes.",
+  };
+
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-cms-form]")) {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = form.querySelector<HTMLElement>(".cms-form__status")!;
+      form.querySelectorAll<HTMLElement>("[data-error-for]").forEach((el) => { el.hidden = true; el.textContent = ""; });
+      form.dataset.state = "sending";
+      status.textContent = "Sending…";
+
+      try {
+        const response = await fetch(form.action, { method: "POST", body: new FormData(form), headers: { Accept: "application/json" } });
+        const body = await response.json().catch(() => ({}));
+        if (response.ok) {
+          form.dataset.state = "sent";
+          form.reset();
+          status.textContent = form.dataset.success ?? "";
+          return;
+        }
+        form.dataset.state = "failed";
+        for (const [name, messages] of Object.entries(body.errors ?? {})) {
+          const el = form.querySelector<HTMLElement>(`[data-error-for="${CSS.escape(name)}"]`);
+          // The CMS says "is required"; the field's label makes it a sentence.
+          if (el) { el.textContent = ([] as string[]).concat(messages as string[]).map((message) => `${el.dataset.label ?? name} ${message}.`).join(" "); el.hidden = false; }
+        }
+        status.textContent = MESSAGES[body.error] ?? (body.errors ? "Please check the highlighted fields." : "Something went wrong — please try again.");
+        (window as any).turnstile?.reset?.();
+      } catch {
+        form.dataset.state = "failed";
+        status.textContent = "Couldn't send — check your connection and try again.";
+      }
+    });
+  }
+</script>

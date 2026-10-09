@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.astro/
+.env
+.wrangler/
+.dev.vars
+example/AGENTS.md
+example/CLAUDE.md
+example/dist/

@@ -1,0 +1,25 @@
+---
+import { getEntry } from "astro:content";
+import Seo from "@librepublish/astro/components/Seo.astro";
+import { linkHref, type CmsEntry, type CmsPage } from "@librepublish/astro/client";
+import { assetsById } from "../lib/assets";
+
+interface Props { record: CmsPage | CmsEntry }
+
+const { record } = Astro.props;
+const assets = await assetsById();
+type NavItem = { label: string; link?: { kind: string; value: string; collection?: string } };
+const nav = (await getEntry("globals", "nav"))?.data as { data?: { items?: NavItem[] } } | undefined;
+---
+<!doctype html>
+<html lang={record.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <Seo record={record} assets={assets} />
+  </head>
+  <body>
+    <nav>{(nav?.data?.items ?? []).map((item) => <a href={linkHref(item.link)}>{item.label}</a>)}</nav>
+    <main><slot /></main>
+  </body>
+</html>

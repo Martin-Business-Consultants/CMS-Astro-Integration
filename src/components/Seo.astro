@@ -1,0 +1,48 @@
+---
+/**
+ * The <head> tags for a page or entry from its `seo`: title, description,
+ * canonical URL, robots, Open Graph and Twitter cards (the share image from
+ * the CMS), hreflang links to its translations, and its JSON-LD.
+ *
+ *   <head><Seo record={page} assets={assets} siteName="Acme" /></head>
+ */
+import type { CmsAsset, CmsEntry, CmsPage } from "@librepublish/astro/client";
+
+interface Props {
+  record: CmsPage | CmsEntry;
+  assets?: Record<string, CmsAsset>;
+  siteName?: string;
+  /** Appended to the title: "About — Acme". */
+  titleTemplate?: (title: string) => string;
+}
+
+const { record, assets = {}, siteName, titleTemplate = (title: string) => (siteName ? `${title} — ${siteName}` : title) } = Astro.props;
+const seo = record.seo ?? {};
+const title = String(seo.meta_title || record.title);
+const description = seo.meta_description ? String(seo.meta_description) : undefined;
+const canonical = seo.canonical_url ? String(seo.canonical_url) : Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const robots = [seo.noindex ? "noindex" : null, seo.nofollow ? "nofollow" : null].filter(Boolean).join(", ");
+const share = seo.og_image_id ? assets[String(seo.og_image_id)] : undefined;
+const twitterImage = seo.twitter_image_id ? assets[String(seo.twitter_image_id)] : share;
+const jsonLd = seo.json_ld ? (typeof seo.json_ld === "string" ? seo.json_ld : JSON.stringify(seo.json_ld)) : undefined;
+const alternates = Astro.site ? record.translations.map((translation) => ({ ...translation, href: new URL(translation.path, Astro.site).href })) : [];
+---
+<title>{titleTemplate(title)}</title>
+{description && <meta name="description" content={description} />}
+{canonical && <link rel="canonical" href={canonical} />}
+{robots && <meta name="robots" content={robots} />}
+<meta property="og:title" content={String(seo.og_title || title)} />
+{(seo.og_description || description) && <meta property="og:description" content={String(seo.og_description || description)} />}
+<meta property="og:type" content={String(seo.og_type || "website")} />
+{canonical && <meta property="og:url" content={canonical} />}
+{siteName && <meta property="og:site_name" content={siteName} />}
+{share && <meta property="og:image" content={share.original} />}
+{share?.width && <meta property="og:image:width" content={String(share.width)} />}
+{share?.height && <meta property="og:image:height" content={String(share.height)} />}
+<meta name="twitter:card" content={String(seo.twitter_card || (twitterImage ? "summary_large_image" : "summary"))} />
+{seo.twitter_title && <meta name="twitter:title" content={String(seo.twitter_title)} />}
+{seo.twitter_description && <meta name="twitter:description" content={String(seo.twitter_description)} />}
+{twitterImage && <meta name="twitter:image" content={twitterImage.original} />}
+{alternates.length > 0 && <link rel="alternate" hreflang={record.locale} href={canonical} />}
+{alternates.map((alternate) => <link rel="alternate" hreflang={alternate.locale} href={alternate.href} />)}
+{jsonLd && <script type="application/ld+json" set:html={jsonLd} />}

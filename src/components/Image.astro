@@ -1,0 +1,50 @@
+---
+/**
+ * An image from the CMS, served from the CMS: its renditions (640, 1280 and
+ * 1920 wide) as a srcset, its size to hold the layout, its alt text.
+ *
+ *   <Image asset={assets[block.data.image_id]} sizes="(min-width: 60rem) 60rem, 100vw" />
+ *
+ * Nothing renders for a missing asset. The image's focal point (set in the
+ * media library) becomes its object-position, so a cropped image keeps it.
+ */
+import type { HTMLAttributes } from "astro/types";
+import type { CmsAsset } from "@librepublish/astro/client";
+
+interface Props extends Omit<HTMLAttributes<"img">, "src" | "srcset" | "width" | "height"> {
+  asset: CmsAsset | null | undefined;
+  alt?: string;
+  sizes?: string;
+}
+
+const { asset, alt, sizes = "100vw", loading = "lazy", decoding = "async", style, ...rest } = Astro.props;
+const position = asset && asset.focal_x != null && asset.focal_y != null
+  ? `${Math.round(asset.focal_x * 100)}% ${Math.round(asset.focal_y * 100)}%`
+  : undefined;
+// The site's own style wins; a string or an object, as Astro takes either.
+const merged = !position ? style
+  : style && typeof style === "object" ? { objectPosition: position, ...style }
+  : [`object-position: ${position}`, style].filter(Boolean).join("; ");
+const srcset = asset?.variants
+  ? Object.entries(asset.variants)
+      .map(([name, url]) => [Number(name.replace(/^w/, "")), url] as const)
+      .filter(([width]) => Number.isFinite(width) && (!asset.width || width < asset.width))
+      .map(([width, url]) => `${url} ${width}w`)
+      .concat(asset.width ? [`${asset.original} ${asset.width}w`] : [])
+      .join(", ")
+  : undefined;
+---
+{asset && (
+  <img
+    src={asset.original}
+    srcset={srcset || undefined}
+    sizes={srcset ? sizes : undefined}
+    width={asset.width ?? undefined}
+    height={asset.height ?? undefined}
+    alt={alt ?? asset.alt ?? ""}
+    loading={loading}
+    decoding={decoding}
+    style={merged}
+    {...rest}
+  />
+)}

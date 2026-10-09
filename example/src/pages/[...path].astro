@@ -1,0 +1,29 @@
+---
+import { getCollection } from "astro:content";
+import Blocks from "@librepublish/astro/components/Blocks.astro";
+import Image from "@librepublish/astro/components/Image.astro";
+import { routeParam, type CmsPage } from "@librepublish/astro/client";
+import Base from "../layouts/Base.astro";
+import Fallback from "../components/blocks/Fallback.astro";
+import { assetsById } from "../lib/assets";
+
+export async function getStaticPaths() {
+  // Served where the CMS says each page lives: "/" for the home page, "/fr/…"
+  // for French; routeParam handles an absolute SEO canonical too.
+  return (await getCollection("pages")).map(({ data }) => {
+    const page = data as unknown as CmsPage;
+    return { params: { path: routeParam(page, { site: import.meta.env.SITE }) }, props: { page } };
+  });
+}
+
+const { page } = Astro.props;
+const assets = await assetsById();
+// The example designs no block types: every one renders as Fallback.
+const components = new Proxy({}, { get: () => Fallback });
+---
+<Base record={page}>
+  <h1>{page.title}</h1>
+  {/* The page's sharing image (the Media plugin), as an example of <Image>. */}
+  <Image asset={assets[String(page.seo.og_image_id ?? "")]} sizes="(min-width: 60rem) 60rem, 100vw" />
+  <Blocks blocks={page.blocks} components={components} assets={assets} />
+</Base>

@@ -1,0 +1,72 @@
+{
+  "name": "@librepublish/astro",
+  "version": "0.1.1",
+  "description": "Build an Astro site on LibrePublish CMS: content loaders, live collections, generated types, blocks, images, SEO, forms, sitemap, redirects, cache purges and build checks",
+  "license": "FSL-1.1-MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Martin-Business-Consultants/libre-cms-astro.git"
+  },
+  "homepage": "https://github.com/Martin-Business-Consultants/libre-cms-astro#readme",
+  "keywords": [
+    "astro-integration",
+    "withastro",
+    "cms",
+    "headless-cms",
+    "librepublish",
+    "cloudflare",
+    "forms",
+    "turnstile"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./loaders": {
+      "types": "./dist/loaders.d.ts",
+      "default": "./dist/loaders.js"
+    },
+    "./live": {
+      "types": "./dist/live.d.ts",
+      "default": "./dist/live.js"
+    },
+    "./forms": {
+      "types": "./dist/forms/index.d.ts",
+      "default": "./dist/forms/index.js"
+    },
+    "./runtime/*": {
+      "types": "./dist/runtime/*.d.ts",
+      "default": "./dist/runtime/*.js"
+    },
+    "./components/*": "./src/components/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src/components"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.js",
+    "e2e": "node test/e2e/run.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "peerDependencies": {
+    "astro": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "astro": "^7.3.6",
+    "typescript": "^5.9.0"
+  }
+}
