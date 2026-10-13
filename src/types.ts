@@ -215,6 +215,13 @@ export interface CmsContent {
 
 export interface ContentMeta { cursor: string; full: boolean; since: string | null }
 
+/** GET /api/v1/robots: the site's robots.txt. */
+export interface CmsRobots {
+  text: string;
+  /** generated: made from Settings › Search; custom: written by hand on the Sitemap screen. */
+  mode: "generated" | "custom";
+}
+
 export interface CmsSitemapUrl {
   url: string;
   path: string;

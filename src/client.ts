@@ -12,7 +12,7 @@
  */
 import type {
   CmsCollection, CmsContent, CmsEntry, CmsGlobal, CmsHealthCheck, CmsHealthSummary, CmsPage, CmsRedirect, CmsSchema,
-  CmsSite, CmsSiteMeta, CmsSitemapMeta, CmsSitemapUrl, ContentMeta, Envelope, ListMeta,
+  CmsRobots, CmsSite, CmsSiteMeta, CmsSitemapMeta, CmsSitemapUrl, ContentMeta, Envelope, ListMeta,
 } from "./types.js";
 
 export type * from "./types.js";
@@ -103,6 +103,8 @@ export function createClient({ url, token, fetch: fetcher, tags = new Set<string
     global: (slug: string) => get<CmsGlobal>(`/globals/${encodeURIComponent(slug)}`),
     sitemap: () => get<CmsSitemapUrl[], CmsSitemapMeta>("/sitemap"),
     redirects: () => get<CmsRedirect[]>("/redirects"),
+    /** The site's robots.txt, as written on the CMS's Sitemap screen or made from Settings › Search (CMS 1.32.4+). */
+    robots: () => get<CmsRobots>("/robots"),
     /** The redirects as a Cloudflare _redirects file. */
     redirectsFile: async () => (await request("/redirects.txt", "text/plain")).text(),
     siteHealth: () => get<CmsHealthCheck[], CmsHealthSummary>("/site_health"),

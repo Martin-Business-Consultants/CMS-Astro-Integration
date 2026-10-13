@@ -240,3 +240,16 @@ test("sitemap.xml keeps only what the site serves: built pages and on-demand rou
   assert.match(kept, /a&amp;b/);
   assert.doesNotMatch(kept, /appetizer/);
 });
+
+test("the client reads the site's robots.txt from the CMS, and an old CMS without one is a CmsError", async () => {
+  const text = "User-agent: *\nDisallow: /thank-you\n\nSitemap: https://site.test/sitemap.xml\n";
+  const { fetcher } = fakeFetch({ "/api/v1/robots": { body: envelope({ text, mode: "custom" }), headers: { "Cache-Tag": "robots" } } });
+  const cms = createClient({ url: "https://cms.test", token: "t", fetch: fetcher });
+  const { data } = await cms.robots();
+  assert.equal(data.text, text);
+  assert.equal(data.mode, "custom");
+  assert.deepEqual([...cms.tags], ["robots"]);
+
+  const old = createClient({ url: "https://cms.test", token: "t", fetch: fakeFetch({}).fetcher });
+  await assert.rejects(old.robots(), CmsError);
+});
